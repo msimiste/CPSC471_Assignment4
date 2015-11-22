@@ -40,6 +40,7 @@ public class Router {
 	private ObjectOutputStream outStream;
 	private Socket tcpSocket;
 	private boolean QUIT = false;
+	private RtnTable routingTable;
     /**
      * Constructor to initialize the rouer instance 
      * 
@@ -54,6 +55,7 @@ public class Router {
 		this.routerId = routerId;
 		this.serverPort = serverPort;
 		this.interval = updateInterval;
+		this.routingTable = new RtnTable();
 	}
 	
 
@@ -69,7 +71,7 @@ public class Router {
 			tcpSocket = new Socket(serverName, serverPort);
 			outStream = new ObjectOutputStream(tcpSocket.getOutputStream());
 			inputStream = new ObjectInputStream(tcpSocket.getInputStream());
-			outStream.writeObject(new DvrPacket(this.routerId, DvrPacket.SERVER, DvrPacket.HELLO));
+			initiateServerContact();
 			//int test = 10;
 			//test = inputStream.readByte();
 			DvrPacket packet = null;
@@ -90,6 +92,12 @@ public class Router {
 	
 	private void processDvr(DvrPacket dvr){
 		
+	}
+	
+	private void initiateServerContact() throws IOException, ClassNotFoundException{
+		DvrPacket packet = null;
+		outStream.writeObject(new DvrPacket(this.routerId, DvrPacket.SERVER, DvrPacket.HELLO));
+		packet = (DvrPacket)inputStream.readObject();
 	}
 
 	
