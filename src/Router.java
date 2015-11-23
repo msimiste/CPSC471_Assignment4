@@ -197,10 +197,10 @@ public class Router {
 
 	}
 	
-	private void notifyNeighbor(int id) throws IOException{
+	public void notifyNeighbor(int id) throws IOException{
 		
 		//DvrPacket pack = new DvrPacket(this.routerId, id, DvrPacket.ROUTE, this.minCost[id]);
-		outStream.writeObject(new DvrPacket(this.routerId, id, DvrPacket.ROUTE, this.minCost[id]));
+		outStream.writeObject(new DvrPacket(this.routerId, id, DvrPacket.ROUTE, this.minCost[this.routerId]));
 		
 	}
 	
