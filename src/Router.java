@@ -41,6 +41,9 @@ public class Router {
 	private Socket tcpSocket;
 	private boolean QUIT = false;
 	private RtnTable routingTable;
+	private int[] linkCost;
+	private int[] nextHop;
+	private int[][] minCost;
     /**
      * Constructor to initialize the rouer instance 
      * 
@@ -57,7 +60,7 @@ public class Router {
 		this.interval = updateInterval;
 		this.routingTable = new RtnTable();
 	}
-	
+	 
 
     /**
      * starts the router 
@@ -77,6 +80,7 @@ public class Router {
 			DvrPacket packet = null;
 			while(!QUIT){
 				 packet = (DvrPacket)inputStream.readObject();
+				 processDvr(packet);
 			}
 			
 			
@@ -92,12 +96,44 @@ public class Router {
 	
 	private void processDvr(DvrPacket dvr){
 		
+		// if dvr.sourceId == SERVER
+		// update linkCcost vector
+		//update minCost vector
+		
+		//else
+		//update minCost vector
 	}
 	
 	private void initiateServerContact() throws IOException, ClassNotFoundException{
 		DvrPacket packet = null;
 		outStream.writeObject(new DvrPacket(this.routerId, DvrPacket.SERVER, DvrPacket.HELLO));
 		packet = (DvrPacket)inputStream.readObject();
+		if(packet.type!=1){
+			this.QUIT = true;
+			return;
+		}
+		int len = packet.mincost.length;
+		this.linkCost = packet.getMinCost();
+		this.minCost = new int[len][len];
+		for(int i = 0; i<len; i++){
+			Arrays.fill(this.minCost[i], 999);
+		}
+		
+		minCost[packet.destid] = Arrays.copyOf(linkCost, len);
+		
+		
+	}
+	
+	private void updateLinkCost(){
+		
+	}
+	
+	private void updateMinCost(){
+		
+	}
+	
+	private void updateNextHop(){
+		
 	}
 
 	
