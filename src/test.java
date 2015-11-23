@@ -50,7 +50,7 @@
  *   our "outrageous" estimate so far is that sx > sv+vx, then we can
  *   set sx = sv+vx as our new better estimate. That's it. That's
  *   relaxation.
- **********************************************************************/
+ **********************************************************************//*
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,7 +58,7 @@ import java.util.List;
  
 public class test{
  
-  public Integer[][] singleSourceShortestPath(Integer[][] weight,
+  public int[][] singleSourceShortestPath(int[][] weight,
           int source) throws Exception
   {
  
@@ -68,8 +68,8 @@ public class test{
     final int INFINITY = Integer.MAX_VALUE;
  
     //declare and initialize pred to EVE and minDist to INFINITY
-    Integer[] pred = new Integer[SIZE];
-    Integer[] minDist = new Integer[SIZE];
+    int [] pred = new int[SIZE];
+    int [] minDist = new int SIZE];
     Arrays.fill(pred, EVE);
     Arrays.fill(minDist, INFINITY);
  
@@ -101,9 +101,9 @@ public class test{
     return result;
   }
  
-  /******************************************************************
+  *//******************************************************************
    *  Retrieve all the neighbors of vertex v.
-   *****************************************************************/
+   *****************************************************************//*
   private List<Integer> adjacency(Integer[][] G, int v) {
     List<Integer> result = new ArrayList<Integer>();
     for (int x = 0; x < G.length; x++) {
@@ -113,4 +113,4 @@ public class test{
     }
     return result;
   }
-}
+}*/
