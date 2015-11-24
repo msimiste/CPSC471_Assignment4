@@ -26,23 +26,22 @@ import java.util.*;
  *
  */
 public class Router {
-	
-	public class Neighbor
-	{
+
+	public class Neighbor {
 		private int[] distVector;
 		private int id;
-		
-		public Neighbor(int[] v, int i){
-			
+
+		public Neighbor(int[] v, int i) {
+
 			distVector = v;
 			id = i;
 		}
-		
-		public int[] getDist(){
-			return distVector;			
+
+		public int[] getDist() {
+			return distVector;
 		}
-		
-		public int getID(){
+
+		public int getID() {
 			return id;
 		}
 	}
@@ -57,11 +56,12 @@ public class Router {
 	private boolean QUIT = false;
 	private RtnTable routingTable;
 	private int[] linkCost;
+	private Neighbor[] neighbors;
 	private int[] nextHop;
 	private int[][] minCost;
 	private int[] minCostVector;
 	private Timer timer;
-	private Queue<Neighbor> neighbors;
+	// private Queue<Neighbor> neighbors;
 
 	/**
 	 * Constructor to initialize the rouer instance
@@ -83,7 +83,8 @@ public class Router {
 		this.serverPort = serverPort;
 		this.interval = updateInterval;
 		this.routingTable = new RtnTable();
-		this.neighbors = new LinkedList<Neighbor>();
+		// this.neighbors = new LinkedList<Neighbor>();
+		// this.neighbors = new Neighbor[];
 	}
 
 	/**
@@ -94,12 +95,18 @@ public class Router {
 	public RtnTable start() {
 
 		try {
+			// establish TCP connection
 			tcpSocket = new Socket(serverName, serverPort);
 			outStream = new ObjectOutputStream(tcpSocket.getOutputStream());
 			inputStream = new ObjectInputStream(tcpSocket.getInputStream());
+
+			// make first connection to the server
 			initiateServerContact();
+
+			// start the timer & set the timeout interval
 			timer = new Timer();
-			timer.scheduleAtFixedRate(new TimeoutHandler(this.minCost, this.linkCost, this), this.interval, this.interval);
+			timer.scheduleAtFixedRate(new TimeoutHandler(this.minCost, this.linkCost, this), this.interval,
+					this.interval);
 
 			// int test = 10;
 			// test = inputStream.readByte();
@@ -132,18 +139,22 @@ public class Router {
 				this.minCostVector = dvr.mincost;
 			}
 		}
-		
+
 		// update minCost vector
-		else{
+		else {
 			int temp = dvr.sourceid;
-			this.minCost[temp] = dvr.mincost;		
-			
+			this.minCost[temp] = dvr.mincost;
+			neighbors[temp] = new Neighbor(dvr.mincost, temp);
+
 		}
-		
+
 	}
 
 	private void initiateServerContact() throws IOException, ClassNotFoundException {
+
 		DvrPacket packet = null;
+
+		// rec
 		outStream.writeObject(new DvrPacket(this.routerId, DvrPacket.SERVER, DvrPacket.HELLO));
 		packet = (DvrPacket) inputStream.readObject();
 		if (packet.type != 1) {
@@ -151,6 +162,7 @@ public class Router {
 			return;
 		}
 		int len = packet.mincost.length;
+		this.neighbors = new Neighbor[len];
 		this.linkCost = packet.getMinCost();
 		this.minCost = new int[len][len];
 		for (int i = 0; i < len; i++) {
@@ -158,21 +170,20 @@ public class Router {
 		}
 
 		minCost[packet.destid] = Arrays.copyOf(linkCost, len);
+		this.neighbors[this.routerId] = new Neighbor(Arrays.copyOf(linkCost, len), this.routerId);
 
 	}
 
 	private boolean updateLinkCost(DvrPacket dvr) {
 		boolean updateOccured = false;
-		for(int i =0; i< dvr.mincost.length; i++)
-		{
-			if(this.linkCost[i] < dvr.mincost[i])
-			{
+		for (int i = 0; i < dvr.mincost.length; i++) {
+			if (this.linkCost[i] < dvr.mincost[i]) {
 				updateOccured = true;
 				linkCost[i] = dvr.mincost[i];
 			}
 		}
-		
-		updateNeighbors();
+
+		// updateNeighbors();
 
 		return updateOccured;
 
@@ -180,38 +191,44 @@ public class Router {
 
 	private void updateMinCost(DvrPacket dvr) {
 
-		for(int i = 0; i < dvr.mincost.length; i++)
+		for (int i = 0; i < dvr.mincost.length; i++) 
 		{
-			for(int j = i+1; j < dvr.mincost.length; j++)
-			{				
-				for(Neighbor neighbor : neighbors)
+			if (this.routerId == i)
+			{
+				break;
+			}
+			for (int j = 0; j < dvr.mincost.length; j++) {
+				for (Neighbor neighbor : neighbors) 
 				{
-					if((neighbor.distVector[j]!=999)&&(neighbor.distVector[j]!=999)){}
-						
+					int cost = this.linkCost[i] + neighbor.distVector[j];
+
+					if (this.minCost[i][j] > cost) 
+					{
+						this.minCost[i][j] = cost;
+					}
 				}
 			}
 		}
 	}
 
-	private void updateNextHop() {
+	private void updateNextHop(int index, int node) {
+
+		this.nextHop[index] = node;
 
 	}
-	
-	public void notifyNeighbor(int id) throws IOException{
-		
-		//DvrPacket pack = new DvrPacket(this.routerId, id, DvrPacket.ROUTE, this.minCost[id]);
+
+	public void notifyNeighbor(int id) throws IOException {
+
+		// DvrPacket pack = new DvrPacket(this.routerId, id, DvrPacket.ROUTE,
+		// this.minCost[id]);
 		outStream.writeObject(new DvrPacket(this.routerId, id, DvrPacket.ROUTE, this.minCost[this.routerId]));
-		
+
 	}
-	
-	private void updateNeighbors(){
-		for(int i =0; i<this.linkCost.length; i++){
-			if ((linkCost[i]!=0)&&(linkCost[i]!=999))
-			{
-				neighbors.add(new Neighbor(this.minCost[i], i));
-			}
-		}
-	}
+	/*
+	 * private void updateNeighbors(){ for(int i =0; i<this.linkCost.length;
+	 * i++){ if ((linkCost[i]!=0)&&(linkCost[i]!=999)) { neighbors.add(new
+	 * Neighbor(this.minCost[i], i)); } } }
+	 */
 
 	/**
 	 * A simple test driver
@@ -221,7 +238,7 @@ public class Router {
 	public static void main(String[] args) {
 		String serverName = "localhost";
 		int serverPort = 2227;
-		int updateInterval = 1000;
+		int updateInterval = 10000;
 		int routerId = 0;
 
 		if (args.length == 1) {
