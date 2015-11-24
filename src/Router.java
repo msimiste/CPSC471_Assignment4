@@ -205,6 +205,7 @@ public class Router {
 					if (this.minCost[i][j] > cost) 
 					{
 						this.minCost[i][j] = cost;
+						updateNextHop(i, neighbor.id);
 					}
 				}
 			}
