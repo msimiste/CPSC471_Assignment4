@@ -56,7 +56,7 @@ public class Router {
 	private boolean QUIT = false;
 	private RtnTable routingTable;
 	private int[] linkCost;
-	private Neighbor[] neighbors;
+	private ArrayList<Neighbor> neighbors;
 	private int[] nextHop;
 	private int[][] minCost;
 	private int[] minCostVector;
@@ -83,6 +83,7 @@ public class Router {
 		this.serverPort = serverPort;
 		this.interval = updateInterval;
 		this.routingTable = new RtnTable();
+
 		// this.neighbors = new LinkedList<Neighbor>();
 		// this.neighbors = new Neighbor[];
 	}
@@ -116,6 +117,12 @@ public class Router {
 				processDvr(packet);
 			}
 
+			this.timer.cancel();
+			this.outStream.flush();
+			this.outStream.close();
+			this.inputStream.close();
+			this.tcpSocket.close();
+
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -123,28 +130,36 @@ public class Router {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return new RtnTable();
+
+		return new RtnTable(this.minCostVector, this.nextHop);
 	}
 
 	private void processDvr(DvrPacket dvr) {
 
-		boolean updateOccured;
+		if (dvr.type == DvrPacket.QUIT) {
+			this.QUIT = true;
+			return;
+		}
 
 		if (dvr.sourceid == DvrPacket.SERVER) {// if dvr.sourceId == SERVER
-												// update linkCost vector
-			updateOccured = updateLinkCost(dvr);
 
-			if (updateOccured) {
-				// update minCost vector
-				this.minCostVector = dvr.mincost;
-			}
+			this.linkCost = dvr.mincost;
+			this.minCostVector = this.linkCost;
+			handleUpdate(dvr);
+
 		}
 
 		// update minCost vector
-		else {
+		else if (dvr.type == DvrPacket.ROUTE) {
 			int temp = dvr.sourceid;
 			this.minCost[temp] = dvr.mincost;
-			neighbors[temp] = new Neighbor(dvr.mincost, temp);
+
+			for (int i = 0; i < neighbors.size(); i++) {
+				if (neighbors.get(i).id == temp) {
+					neighbors.set(i, new Neighbor(dvr.mincost, temp));
+				}
+			}
+			updateMinCost();
 
 		}
 
@@ -154,68 +169,135 @@ public class Router {
 
 		DvrPacket packet = null;
 
-		// rec
+		// contact the server
 		outStream.writeObject(new DvrPacket(this.routerId, DvrPacket.SERVER, DvrPacket.HELLO));
+		// recieve hello info from server
 		packet = (DvrPacket) inputStream.readObject();
-		if (packet.type != 1) {
+
+		if (packet.type == DvrPacket.QUIT) {
 			this.QUIT = true;
 			return;
 		}
+
 		int len = packet.mincost.length;
-		this.neighbors = new Neighbor[len];
+
+		this.nextHop = new int[len];
+		this.minCostVector = new int[len];
+
 		this.linkCost = packet.getMinCost();
+		initializeNextHop();
 		this.minCost = new int[len][len];
+		this.neighbors = new ArrayList<Neighbor>(len);
+		initializeNeighbors(packet);
+		//
 		for (int i = 0; i < len; i++) {
 			Arrays.fill(this.minCost[i], 999);
 		}
 
+		// initializeNeighbors();
 		minCost[packet.destid] = Arrays.copyOf(linkCost, len);
-		this.neighbors[this.routerId] = new Neighbor(Arrays.copyOf(linkCost, len), this.routerId);
+
+		// this is a neighbor of itself, however the array value is not used
+		// this.neighbors[this.routerId] = new Neighbor(Arrays.copyOf(linkCost,
+		// len), this.routerId);
 
 	}
 
-	private boolean updateLinkCost(DvrPacket dvr) {
-		boolean updateOccured = false;
-		for (int i = 0; i < dvr.mincost.length; i++) {
-			if (this.linkCost[i] < dvr.mincost[i]) {
-				updateOccured = true;
-				linkCost[i] = dvr.mincost[i];
+	private void handleUpdate(DvrPacket dvr) {
+
+		int len = dvr.getMinCost().length;
+		// cancel timer,
+		this.timer.cancel();
+		
+		// re init all data structures
+		this.linkCost = dvr.getMinCost();
+		this.nextHop = new int[len];
+		initializeNextHop();
+		this.neighbors = new ArrayList<Neighbor>(len);
+		initializeNeighbors(dvr);
+		
+		
+		this.minCost = new int[len][len];	
+		for (int i = 0; i < len; i++) {
+			Arrays.fill(this.minCost[i], 999);
+		}
+		
+		minCost[dvr.destid] = Arrays.copyOf(linkCost, len);
+		this.timer = new Timer();
+		
+		// restart timer;
+		timer.scheduleAtFixedRate(new TimeoutHandler(this.minCost, this.linkCost, this), this.interval,
+				this.interval);
+		
+		// re init all data structures
+		
+
+	}
+	
+	private void initializeNextHop(){
+		
+		for (int i = 0; i < linkCost.length; i++) {
+			if (linkCost[i] == 0) {
+				this.nextHop[i] = this.routerId;
+
+			} else if (linkCost[i] == DvrPacket.INFINITY) {
+				this.nextHop[i] = -1;
+			} else {
+				this.nextHop[i] = i;
 			}
 		}
-
-		// updateNeighbors();
-
-		return updateOccured;
-
 	}
 
-	private void updateMinCost(DvrPacket dvr) {
+	private void updateMinCost() {
 
-		for (int i = 0; i < dvr.mincost.length; i++) 
-		{
-			if (this.routerId == i)
-			{
-				break;
-			}
-			for (int j = 0; j < dvr.mincost.length; j++) {
-				for (Neighbor neighbor : neighbors) 
-				{
-					int cost = this.linkCost[i] + neighbor.distVector[j];
+		for (int i = 0; i < this.linkCost.length; i++) {
+			for (int j = 0; j < this.linkCost.length; j++) {
+				if (this.routerId != j) {
+					int cost = this.minCost[i][j];					
+					for (Neighbor neighbor : neighbors) {
+						
+						//int Ncost = neighbor.distVector[j] + neighbor.distVector[i];
+						int Ncost1 = minCost[i][neighbor.id] + minCost[neighbor.id][j];
 
-					if (this.minCost[i][j] > cost) 
-					{
-						this.minCost[i][j] = cost;
-						updateNextHop(i, neighbor.id);
+						if (Ncost1 < cost) {
+							
+							if((neighbor.id==2)&&(i==0)&&(j==1))
+							{
+								int test =0;
+								int test1 = test;
+							}
+							cost = Ncost1;							
+							this.nextHop[j] = neighbor.id;	
+							
+						}
+					
 					}
+					minCost[i][j] = cost;
 				}
+
 			}
+
 		}
+		this.minCostVector = this.minCost[this.routerId];
 	}
 
 	private void updateNextHop(int index, int node) {
 
 		this.nextHop[index] = node;
 
+	}
+
+	private void initializeNeighbors(DvrPacket dvr) {
+		// neighbors = new
+		int[] temp = new int[this.linkCost.length];
+		Arrays.fill(temp, 999);
+
+		for (int i = 0; i < dvr.mincost.length; i++) {
+
+			if ((dvr.mincost[i] > 0) && (dvr.mincost[i] < 999)) {
+				this.neighbors.add(new Neighbor(temp, i));
+			}
+		}
 	}
 
 	public void notifyNeighbor(int id) throws IOException {
@@ -239,7 +321,7 @@ public class Router {
 	public static void main(String[] args) {
 		String serverName = "localhost";
 		int serverPort = 2227;
-		int updateInterval = 10000;
+		int updateInterval = 1000;
 		int routerId = 0;
 
 		if (args.length == 1) {
