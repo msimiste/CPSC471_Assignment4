@@ -1,17 +1,30 @@
 import java.io.IOException;
 import java.util.TimerTask;
 
+/**
+ * 
+ * @author msimiste
+ * this class handles a timeout for its parent Router class
+ */
+ 
 public class TimeoutHandler extends TimerTask {
 
-	private int[][] minCost;
+	
 	private int[] linkCost;
 	private Router router;
-	public TimeoutHandler(int[][] min, int[] link, Router r){
+	
+	/**
+	 * 
+	 * @param link
+	 * 			the linkCost vector for the parent router
+	 * @param r
+	 * 			the Parent router calass
+	 * 
+	 */
+	public TimeoutHandler(int[] link, Router r){		
 		
-		this.minCost = min;
 		this.linkCost = link;
-		this.router = r;
-		
+		this.router = r;		
 	}
 	
 	public void run(){
